@@ -1,3 +1,19 @@
+> [!NOTE]
+> ## 🍴 About this fork
+>
+> This is a personal fork of [louislam/dockge](https://github.com/louislam/dockge). It follows upstream's `master` branch and adds a few quality-of-life changes on top. A GitHub Actions workflow checks upstream every 2 hours, re-applies these changes and publishes a fresh multi-arch image (`linux/amd64`, `linux/arm64`) to Docker Hub, so the image is never more than a couple of hours behind upstream.
+>
+> **What's different from upstream:**
+>
+> - 🌗 **Finished light theme.** Upstream `master` has a Light / Dark / Auto switcher in *Settings → Appearance* that hasn't been released yet, and its light styling was unfinished. In this fork the compose editor switches to a light colour scheme, and buttons and status badges stay readable.
+> - 👉 **Selected stack is highlighted** in the left-hand list, in both themes. It stays highlighted on that stack's container terminal pages, and scrolls into view.
+> - 🔄 **Update all.** One button next to *+ Compose* pulls and redeploys every running stack, one after another. Each stack's page opens so you can watch the output. At the end, a summary shows which stacks got new images, which were already up to date, and which failed. A *Stop* button ends the run after the current stack.
+> - 🛠️ **Dockge can update itself.** In upstream, updating the stack Dockge runs in pulls the new image and then leaves Dockge stopped. Here it restarts properly. (*Update all* skips the `dockge` stack, since restarting Dockge would cut the run short. Update it from its own page.)
+>
+> **Using it:** it's a drop-in replacement. In your Dockge `compose.yaml`, replace `louislam/dockge:1` with `klazutin/dockge:latest` and redeploy. Everything else in the README below applies unchanged.
+>
+> Details, the list of patches and how the automatic build works: [FORK.md](./FORK.md). Issues with the changes above belong here. For anything else, see [upstream](https://github.com/louislam/dockge/issues).
+
 <div align="center" width="100%">
     <img src="./frontend/public/icon.svg" width="128" alt="" />
 </div>
