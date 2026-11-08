@@ -20,4 +20,13 @@ body.light {
         color: darken($primary, 25%);
     }
 
+    // Stack list: selection uses the primary tint (as in dark mode),
+    // hover stays a neutral grey so it never looks like the selection
+    .stack-list .item.active {
+        background-color: rgba($primary, 0.22);
+    }
+
+    .stack-list .item:hover:not(.active) {
+        background-color: #f1f3f5;
+    }
 }

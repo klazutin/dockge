@@ -389,7 +389,7 @@ optgroup {
             }
 
             &.active {
-                background-color: $dark-bg2;
+                background-color: rgba($primary, 0.18); // [fork] was $dark-bg2, same as hover
             }
         }
     }

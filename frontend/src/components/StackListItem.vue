@@ -1,5 +1,5 @@
 <template>
-    <router-link :to="url" :class="{ 'dim' : !stack.isManagedByDockge }" class="item">
+    <router-link :to="url" :class="{ 'dim' : !stack.isManagedByDockge, 'active': isActive }" class="item" active-class="" exact-active-class="">
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
         <div class="title">
             <span>{{ stackName }}</span>
@@ -69,9 +69,26 @@ export default {
         },
         stackName() {
             return this.stack.name;
-        }
+        },
+        /**
+         * [fork] Highlight the stack that is open on the right, including its container terminal pages
+         * @returns {boolean} True if this stack is the one being viewed
+         */
+        isActive() {
+            const params = this.$route.params;
+            return params.stackName === this.stack.name
+                && (params.endpoint || "") === (this.stack.endpoint || "");
+        },
     },
     watch: {
+        isActive: {
+            handler(active) {
+                if (active) {
+                    this.$nextTick(() => this.$el?.scrollIntoView?.({ block: "nearest" }));
+                }
+            },
+            immediate: true,
+        },
         isSelectMode() {
             // TODO: Resize the heartbeat bar, but too slow
             // this.$refs.heartbeatBar.resize();
@@ -143,8 +160,23 @@ export default {
     &:hover {
         background-color: $highlight-white;
     }
+    // [fork] Clear selected state: primary tint + accent bar + bolder name
+    position: relative;
     &.active {
-        background-color: #cdf8f4;
+        background-color: rgba($primary, 0.15);
+        .title {
+            font-weight: 600;
+        }
+        &::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 10px;
+            bottom: 10px;
+            width: 3px;
+            border-radius: 3px;
+            background-color: $primary;
+        }
     }
     .title {
         margin-top: -4px;
