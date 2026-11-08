@@ -2,6 +2,12 @@
 // Lives on the root app so the run survives route changes (each stack's page is opened while it updates).
 import { defineComponent } from "vue";
 
+/**
+ * Stacks "Update all" never touches. Redeploying Dockge's own stack restarts the Dockge
+ * container mid-run and cuts the run off, so it has to be updated on its own.
+ */
+export const UPDATE_ALL_SKIP_STACKS = [ "dockge" ];
+
 export interface UpdateAllTarget {
     name: string;
     endpoint: string;

@@ -81,6 +81,9 @@
                 {{ target.name }}<span v-if="$root.agentCount > 1 && target.endpoint" class="text-secondary"> ({{ target.endpoint }})</span>
             </li>
         </ul>
+        <p v-if="updateAllSkipped.length > 0" class="small text-secondary mt-2 mb-0">
+            {{ $t("updateAllSkippedSelf", [ updateAllSkipped.map(s => s.name).join(", ") ]) }}
+        </p>
         <p v-if="searchText !== ''" class="small text-secondary mt-2 mb-0">{{ $t("updateAllFiltered") }}</p>
     </Confirm>
 
@@ -92,6 +95,7 @@
 <script>
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
+import { UPDATE_ALL_SKIP_STACKS } from "../mixins/update-all";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN } from "../../../common/util-common";
 
 export default {
@@ -241,9 +245,9 @@ export default {
 
         /**
          * [fork] Running, Dockge-managed stacks in the order shown in the list
-         * @returns {Array} Targets for "Update all"
+         * @returns {Array} Candidates for "Update all", before skipping
          */
-        updateAllTargets() {
+        updateAllCandidates() {
             return this.agentStackList
                 .flatMap(agent => agent.stacks)
                 .filter(stack => stack.isManagedByDockge && stack.status === RUNNING)
@@ -251,6 +255,22 @@ export default {
                     name: stack.name,
                     endpoint: stack.endpoint || "",
                 }));
+        },
+
+        /**
+         * [fork] Stacks "Update all" will update (Dockge's own stack excluded)
+         * @returns {Array} Targets for "Update all"
+         */
+        updateAllTargets() {
+            return this.updateAllCandidates.filter(stack => !UPDATE_ALL_SKIP_STACKS.includes(stack.name));
+        },
+
+        /**
+         * [fork] Running stacks left out of "Update all"
+         * @returns {Array} Skipped stacks
+         */
+        updateAllSkipped() {
+            return this.updateAllCandidates.filter(stack => UPDATE_ALL_SKIP_STACKS.includes(stack.name));
         },
 
         isDarkTheme() {

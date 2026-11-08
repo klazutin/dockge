@@ -163,5 +163,6 @@
     "updateAllNone": "None",
     "updateAllUnknown": "could not compare images",
     "OK": "OK",
-    "updateAllNoTargets": "There are no running stacks to update."
+    "updateAllNoTargets": "There are no running stacks to update.",
+    "updateAllSkippedSelf": "Skipped: {0}. This is Dockge itself, and updating it would restart Dockge partway through. Update it from its own page."
 }
