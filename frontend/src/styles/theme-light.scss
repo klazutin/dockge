@@ -1,0 +1,23 @@
+// [fork] Light theme refinements.
+// Upstream's light styles were never tuned: white text on the light-blue primary colour
+// is hard to read. Use the same dark text on primary that the dark theme already uses.
+@import "vars.scss";
+
+body.light {
+    .btn-primary,
+    .btn-primary:hover,
+    .btn-primary:active,
+    .btn-primary:focus,
+    .nav-pills .nav-link.active,
+    .nav-pills .show > .nav-link,
+    .bg-primary,
+    .btn-check:checked + .btn-outline-primary,
+    .btn-check:active + .btn-outline-primary {
+        color: $dark-font-color2;
+    }
+
+    .btn-outline-primary {
+        color: darken($primary, 25%);
+    }
+
+}

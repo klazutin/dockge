@@ -173,11 +173,12 @@
                     <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
                         <code-mirror
                             ref="editor"
+                            :key="`yaml-${$root.theme}`"
                             v-model="stack.composeYAML"
-                            :extensions="extensions"
+                            :extensions="$root.isDark ? extensions : extensionsLight"
                             minimal
                             wrap="true"
-                            dark="true"
+                            :dark="$root.isDark"
                             tab="true"
                             :disabled="!isEditMode"
                             :hasFocus="editorFocus"
@@ -194,11 +195,12 @@
                         <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
                             <code-mirror
                                 ref="editor"
+                                :key="`env-${$root.theme}`"
                                 v-model="stack.composeENV"
-                                :extensions="extensionsEnv"
+                                :extensions="$root.isDark ? extensionsEnv : extensionsEnvLight"
                                 minimal
                                 wrap="true"
-                                dark="true"
+                                :dark="$root.isDark"
                                 tab="true"
                                 :disabled="!isEditMode"
                                 :hasFocus="editorFocus"
@@ -249,7 +251,7 @@
 import CodeMirror from "vue-codemirror6";
 import { yaml } from "@codemirror/lang-yaml";
 import { python } from "@codemirror/lang-python";
-import { dracula as editorTheme } from "thememirror";
+import { dracula as editorTheme, tomorrow as editorThemeLight } from "thememirror";
 import { lineNumbers, EditorView } from "@codemirror/view";
 import { parseDocument, Document } from "yaml";
 
@@ -318,8 +320,14 @@ export default {
             EditorView.focusChangeEffect.of(focusEffectHandler)
         ];
 
+        // [fork] Light theme variants of the editor extensions
+        const extensionsLight = [ editorThemeLight, ...extensions.slice(1) ];
+        const extensionsEnvLight = [ editorThemeLight, ...extensionsEnv.slice(1) ];
+
         return { extensions,
             extensionsEnv,
+            extensionsLight,
+            extensionsEnvLight,
             editorFocus };
     },
     yamlDoc: null,  // For keeping the yaml comments
