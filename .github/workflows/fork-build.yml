@@ -1,0 +1,147 @@
+# [fork] Rebase this fork's patches onto upstream master and publish a Docker image.
+#
+# Runs every 2 hours (GitHub cannot be triggered by pushes to someone else's repo), on every push to
+# `custom`, and on demand. The image is only rebuilt when the rebased source tree has changed.
+#
+# Repository settings needed:
+#   secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN   Docker Hub login (access token, Read & Write)
+#   secrets.FORK_PAT (optional)   fine-grained PAT for this repo with Contents + Workflows: read/write.
+#                                 Lets the job push the rebased `custom` branch back, which keeps it
+#                                 current and keeps the schedule alive (GitHub pauses schedules after
+#                                 60 days without repository activity).
+#   vars.DOCKER_IMAGE (optional)  image name, defaults to klazutin/dockge
+
+name: Fork build
+
+on:
+  schedule:
+    - cron: "23 */2 * * *"
+  push:
+    branches: [ custom ]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild even if this source tree was already published"
+        type: boolean
+        default: false
+
+concurrency:
+  group: fork-build
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ${{ vars.DOCKER_IMAGE || 'klazutin/dockge' }}
+  UPSTREAM_REPO: https://github.com/louislam/dockge.git
+  UPSTREAM_BRANCH: master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HAS_PAT: ${{ secrets.FORK_PAT != '' }}
+
+    steps:
+      - name: Check out custom branch
+        uses: actions/checkout@v4
+        with:
+          ref: custom
+          fetch-depth: 0
+          token: ${{ secrets.FORK_PAT || github.token }}
+
+      - name: Rebase patches onto upstream
+        id: rebase
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+
+          if ! git rebase "upstream/$UPSTREAM_BRANCH"; then
+            git rebase --abort || true
+            echo "::error::The fork's patches no longer apply cleanly to upstream $UPSTREAM_BRANCH. Rebase 'custom' locally, resolve the conflicts and push."
+            exit 1
+          fi
+
+          # The tree hash identifies the exact source being built (upstream + patches),
+          # independent of rebase commit timestamps.
+          up=$(git rev-parse --short=8 "upstream/$UPSTREAM_BRANCH")
+          tree=$(git rev-parse --short=8 "HEAD^{tree}")
+          tag="up-${up}-${tree}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "upstream=$(git rev-parse "upstream/$UPSTREAM_BRANCH")" >> "$GITHUB_OUTPUT"
+
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/custom)" ]; then
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "### Source" >> "$GITHUB_STEP_SUMMARY"
+          echo "Upstream \`$up\` + fork patches → \`$IMAGE:$tag\`" >> "$GITHUB_STEP_SUMMARY"
+          git log --oneline "upstream/$UPSTREAM_BRANCH..HEAD" | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check whether this tree is already published
+        id: check
+        run: |
+          if [ "${{ inputs.force }}" != "true" ] && docker manifest inspect "$IMAGE:${{ steps.rebase.outputs.tag }}" > /dev/null 2>&1; then
+            echo "Already published: $IMAGE:${{ steps.rebase.outputs.tag }}, nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Already published, build skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build frontend
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          npm ci --no-fund --no-audit
+          npm run build:frontend
+
+      - name: Set up QEMU
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          target: release
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.rebase.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.rebase.outputs.upstream }}
+            org.opencontainers.image.description=Dockge (louislam/dockge master) with fork patches
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push rebased branch
+        if: steps.rebase.outputs.moved == 'true' && env.HAS_PAT == 'true'
+        run: git push --force-with-lease=custom:origin/custom origin HEAD:custom
