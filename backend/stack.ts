@@ -475,6 +475,65 @@ export class Stack {
         return exitCode;
     }
 
+    /**
+     * [fork] Run update() and report whether any container ended up on a different image.
+     * changed is null when the image IDs could not be determined.
+     */
+    async updateAndDetectChanges(socket: DockgeSocket) : Promise<{ changed: boolean | null }> {
+        const before = await this.getContainerImageIds();
+        await this.update(socket);
+        const after = await this.getContainerImageIds();
+
+        if (before === null || after === null) {
+            return { changed: null };
+        }
+
+        const keys = new Set([ ...before.keys(), ...after.keys() ]);
+        for (const key of keys) {
+            if (before.get(key) !== after.get(key)) {
+                return { changed: true };
+            }
+        }
+        return { changed: false };
+    }
+
+    /**
+     * [fork] Map of container name -> image ID, from `docker compose images`.
+     * Returns null if the output could not be read.
+     */
+    async getContainerImageIds() : Promise<Map<string, string> | null> {
+        try {
+            const res = await childProcessAsync.spawn("docker", this.getComposeOptions("images", "--format", "json"), {
+                cwd: this.path,
+                encoding: "utf-8",
+            });
+            const stdout = res.stdout?.toString().trim() ?? "";
+            const map = new Map<string, string>();
+            if (stdout === "") {
+                return map;
+            }
+
+            // Newer compose prints one JSON array, older versions print one object per line
+            let entries : Array<{ ID?: string, ContainerName?: string, Service?: string }>;
+            if (stdout.startsWith("[")) {
+                entries = JSON.parse(stdout);
+            } else {
+                entries = stdout.split("\n").filter(line => line.trim() !== "").map(line => JSON.parse(line));
+            }
+
+            for (const entry of entries) {
+                const key = entry.ContainerName ?? entry.Service;
+                if (key && entry.ID) {
+                    map.set(key, entry.ID);
+                }
+            }
+            return map;
+        } catch (e) {
+            log.warn("getContainerImageIds", `Failed to get images for ${this.name}: ${e}`);
+            return null;
+        }
+    }
+
     async joinCombinedTerminal(socket: DockgeSocket) {
         const terminalName = getCombinedTerminalName(socket.endpoint, this.name);
         const terminal = Terminal.getOrCreateTerminal(this.server, terminalName, "docker", this.getComposeOptions("logs", "-f", "--tail", "100"), this.path);

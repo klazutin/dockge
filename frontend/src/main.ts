@@ -22,6 +22,7 @@ import "./styles/main.scss";
 import socket from "./mixins/socket";
 import lang from "./mixins/lang";
 import theme from "./mixins/theme";
+import updateAll from "./mixins/update-all"; // [fork]
 
 // Set Title
 document.title = document.title + " - " + location.host;
@@ -48,6 +49,7 @@ function rootApp() {
             socket,
             lang,
             theme,
+            updateAll,
         ],
         data() {
             return {

@@ -148,5 +148,20 @@
     "rmCode": "rm",
     "rmRfCode": "rm -rf",
     "envVarCode": "DOCKGE_ENABLE_CONSOLE=true",
-    "confirmLeaveStack": "You are currently editing a stack. Are you sure you want to leave?"
+    "confirmLeaveStack": "You are currently editing a stack. Are you sure you want to leave?",
+    "updateAll": "Update all",
+    "updateAllHint": "Pull and redeploy every running stack, one at a time",
+    "updateAllConfirm": "Update these {0} running stacks one by one? Each stack's page will open while it updates.",
+    "updateAllFiltered": "Only stacks matching the current search are included.",
+    "updateAllProgress": "Updating {0}/{1}",
+    "updateAllStop": "Stop after the current stack",
+    "updateAllCompleted": "Updates completed",
+    "updateAllStoppedEarly": "Stopped early: {0} of {1} stacks were processed.",
+    "updateAllChanged": "Updated to new images",
+    "updateAllUnchanged": "Already up to date",
+    "updateAllFailed": "Failed",
+    "updateAllNone": "None",
+    "updateAllUnknown": "could not compare images",
+    "OK": "OK",
+    "updateAllNoTargets": "There are no running stacks to update."
 }

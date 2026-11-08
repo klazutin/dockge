@@ -186,11 +186,12 @@ export class DockerSocketHandler extends AgentSocketHandler {
                 }
 
                 const stack = await Stack.getStack(server, stackName);
-                await stack.update(socket);
+                const { changed } = await stack.updateAndDetectChanges(socket);
                 callbackResult({
                     ok: true,
                     msg: "Updated",
                     msgi18n: true,
+                    changed,
                 }, callback);
                 server.sendStackList();
             } catch (e) {

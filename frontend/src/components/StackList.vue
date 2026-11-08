@@ -72,6 +72,18 @@
         </div>
     </div>
 
+    <!-- [fork] Update all confirmation -->
+    <Confirm ref="confirmUpdateAll" :title="$t('updateAll')" :yes-text="$t('updateAll')" :no-text="$t('cancel')" @yes="startUpdateAll">
+        <p v-if="updateAllTargets.length === 0" class="mb-0">{{ $t("updateAllNoTargets") }}</p>
+        <p v-else>{{ $t("updateAllConfirm", [ updateAllTargets.length ]) }}</p>
+        <ul class="mb-0">
+            <li v-for="target in updateAllTargets" :key="target.endpoint + '/' + target.name">
+                {{ target.name }}<span v-if="$root.agentCount > 1 && target.endpoint" class="text-secondary"> ({{ target.endpoint }})</span>
+            </li>
+        </ul>
+        <p v-if="searchText !== ''" class="small text-secondary mt-2 mb-0">{{ $t("updateAllFiltered") }}</p>
+    </Confirm>
+
     <Confirm ref="confirmPause" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="pauseSelected">
         {{ $t("pauseStackMsg") }}
     </Confirm>
@@ -227,6 +239,20 @@ export default {
             return result;
         },
 
+        /**
+         * [fork] Running, Dockge-managed stacks in the order shown in the list
+         * @returns {Array} Targets for "Update all"
+         */
+        updateAllTargets() {
+            return this.agentStackList
+                .flatMap(agent => agent.stacks)
+                .filter(stack => stack.isManagedByDockge && stack.status === RUNNING)
+                .map(stack => ({
+                    name: stack.name,
+                    endpoint: stack.endpoint || "",
+                }));
+        },
+
         isDarkTheme() {
             return document.body.classList.contains("dark");
         },
@@ -295,6 +321,22 @@ export default {
         window.removeEventListener("scroll", this.onScroll);
     },
     methods: {
+        /**
+         * [fork] Start updating all running stacks
+         * @returns {void}
+         */
+        startUpdateAll() {
+            this.$root.startUpdateAll(this.updateAllTargets);
+        },
+
+        /**
+         * [fork] Ask for confirmation before updating all running stacks
+         * @returns {void}
+         */
+        confirmUpdateAll() {
+            this.$refs.confirmUpdateAll.show();
+        },
+
         /**
          * Handle user scroll
          * @returns {void}

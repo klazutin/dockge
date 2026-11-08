@@ -9,7 +9,8 @@
                 </span>
             </h1>
 
-            <div v-if="stack.isManagedByDockge" class="mb-3">
+            <!-- [fork] fieldset disables these buttons while "Update all" is updating this stack -->
+            <fieldset v-if="stack.isManagedByDockge" class="mb-3" :disabled="updatingInUpdateAll">
                 <div class="btn-group me-2" role="group">
                     <button v-if="isEditMode" class="btn btn-primary" :disabled="processing" @click="deployStack">
                         <font-awesome-icon icon="rocket" class="me-1" />
@@ -59,7 +60,7 @@
                     <font-awesome-icon icon="trash" class="me-1" />
                     {{ $t("deleteStack") }}
                 </button>
-            </div>
+            </fieldset>
 
             <!-- URLs -->
             <div v-if="urls.length > 0" class="mb-3">
@@ -355,6 +356,14 @@ export default {
         };
     },
     computed: {
+        /**
+         * [fork] True while "Update all" is updating the stack shown on this page
+         * @returns {boolean}
+         */
+        updatingInUpdateAll() {
+            return this.$root.isUpdatingInUpdateAll(this.stack.name, this.endpoint);
+        },
+
         endpointDisplay() {
             return this.$root.endpointDisplayFunction(this.endpoint);
         },
