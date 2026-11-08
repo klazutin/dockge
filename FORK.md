@@ -16,6 +16,7 @@ services:
 | `feat: complete light theme` | Polishes the Light/Dark/Auto switcher already in upstream's Settings → Appearance: a light compose editor theme, readable text on primary-coloured buttons and badges (`frontend/src/styles/theme-light.scss`). |
 | `feat: highlight selected stack in sidebar` | Highlights the open stack in the left list, in both themes and on its container-terminal pages, and scrolls it into view. |
 | `feat: update all stacks` | An **Update all** button above the stack list. It pulls and redeploys every running stack in turn, opening each stack's page so you can watch the output. At the end, a summary lists which stacks got new images, which were already up to date and which failed. |
+| `fix: let Dockge update its own stack` | Updating (or redeploying) the stack Dockge itself runs in used to stop Dockge and leave it stopped: `docker compose up -d` runs inside the container it's replacing, so it gets killed before it can start the new one. That final `up -d` now runs in a short-lived helper container started from the same image with the same mounts (`backend/self-container.ts`). **Update all** skips the `dockge` stack. |
 | `ci: sync upstream and build image` | `.github/workflows/fork-build.yml` and this file. |
 
 All fork changes are marked `[fork]` in the code.

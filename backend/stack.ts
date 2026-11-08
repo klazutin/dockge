@@ -18,6 +18,7 @@ import {
 } from "../common/util-common";
 import { InteractiveTerminal, Terminal } from "./terminal";
 import childProcessAsync from "promisify-child-process";
+import { getSelfContainerIfStack } from "./self-container";
 import { Settings } from "./settings";
 
 export class Stack {
@@ -206,7 +207,7 @@ export class Stack {
 
     async deploy(socket : DockgeSocket) : Promise<number> {
         const terminalName = getComposeTerminalName(socket.endpoint, this.name);
-        let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans"), this.path);
+        let exitCode = await this.composeUp(socket, terminalName); // [fork] was Terminal.exec(... "up", "-d", "--remove-orphans" ...)
         if (exitCode !== 0) {
             throw new Error("Failed to deploy, please check the terminal output for more information.");
         }
@@ -468,11 +469,46 @@ export class Stack {
             return exitCode;
         }
 
-        exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans"), this.path);
+        exitCode = await this.composeUp(socket, terminalName); // [fork] was Terminal.exec(... "up", "-d", "--remove-orphans" ...)
         if (exitCode !== 0) {
             throw new Error("Failed to restart, please check the terminal output for more information.");
         }
         return exitCode;
+    }
+
+    /**
+     * [fork] `docker compose up -d --remove-orphans`, safe for Dockge's own stack.
+     *
+     * Recreating the container Dockge runs in kills the compose process half-way (it lives in that
+     * container), leaving Dockge stopped. For Dockge's own stack, run compose in a detached helper
+     * container instead: same image, same mounts (--volumes-from), and a short delay so the
+     * response reaches the browser before Dockge goes down. See self-container.ts.
+     */
+    async composeUp(socket : DockgeSocket, terminalName : string) : Promise<number> {
+        const upOptions = this.getComposeOptions("up", "-d", "--remove-orphans");
+        const self = await getSelfContainerIfStack(this.name, this.path);
+
+        if (!self) {
+            return Terminal.exec(this.server, socket, terminalName, "docker", upOptions, this.path);
+        }
+
+        log.info("composeUp", `"${this.name}" is Dockge's own stack, running compose up in a helper container`);
+        const args = [
+            "run", "-d", "--rm",
+            "--name", `dockge-self-update-${Date.now()}`,
+            "--volumes-from", self.id,
+            "--workdir", this.path,
+        ];
+        if (process.env.DOCKER_HOST) {
+            args.push("--env", `DOCKER_HOST=${process.env.DOCKER_HOST}`);
+        }
+        args.push(
+            "--entrypoint", "sh",
+            self.image,
+            "-c", "sleep 3 && exec docker \"$@\"", "dockge-self-update",
+            ...upOptions,
+        );
+        return Terminal.exec(this.server, socket, terminalName, "docker", args, this.path);
     }
 
     /**
@@ -482,6 +518,11 @@ export class Stack {
     async updateAndDetectChanges(socket: DockgeSocket) : Promise<{ changed: boolean | null }> {
         const before = await this.getContainerImageIds();
         await this.update(socket);
+
+        // Dockge's own stack is recreated asynchronously by a helper container, can't compare yet
+        if (await getSelfContainerIfStack(this.name, this.path)) {
+            return { changed: null };
+        }
         const after = await this.getContainerImageIds();
 
         if (before === null || after === null) {
